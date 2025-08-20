@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מחשבון תמחור הכשרות</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.5/babel.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .app-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(45deg, #4F46E5, #7C3AED);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .form-section {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .component-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        .component-card:hover {
+            border-color: #4F46E5;
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.1);
+        }
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #4F46E5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: #4F46E5;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #4338CA;
+            transform: translateY(-2px);
+        }
+        .btn-success {
+            background: #10B981;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #059669;
+        }
+        .btn-danger {
+            background: #EF4444;
+            color: white;
+            padding: 8px;
+        }
+        .btn-danger:hover {
+            background: #DC2626;
+        }
+        .summary-card {
+            background: linear-gradient(45deg, #10B981, #059669);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px; }
+        
+        @media (max-width: 768px) {
+            .grid-2, .grid-3, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+            body { padding: 10px; }
+            .content { padding: 20px; }
+        }
+        
+        .quote-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+        .quote-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        const TrainingPricingApp = () => {
+            const [selectedClient, setSelectedClient] = useState('דיגיטלית');
+            const [trainingName, setTrainingName] = useState('');
+            const [clientName, setClientName] = useState('');
+            const [components, setComponents] = useState([]);
+            const [currentComponent, setCurrentComponent] = useState({
+                type: 'יום הכשרה',
+                description: '',
+                hoursPerUnit: 6,
+                numberOfUnits: 1
+            });
+            const [discount, setDiscount] = useState(0);
+            const [showFinalQuote, setShowFinalQuote] = useState(false);
+
+            // תעריפים שונים לכל סוג לקוח
+            const clientRates = {
+                'דיגיטלית': { teaching: 500, travel: 250, preparation: 350, consulting: 400 },
+                'קרנות': { teaching: 450, travel: 225, preparation: 300, consulting: 350 },
+                'מקומות': { teaching: 400, travel: 200, preparation: 280, consulting: 320 },
+                'גוינט': { teaching: 380, travel: 190, preparation: 260, consulting: 300 },
+                'רשויות מקומיות': { teaching: 350, travel: 175, preparation: 240, consulting: 280 },
+                'עמותות': { teaching: 300, travel: 150, preparation: 200, consulting: 250 }
+            };
+
+            // התאמה אוטומטית בין רכיבים לתעריפים
+            const componentToRateMapping = {
+                'תהליך אפיון': 'preparation',
+                'יום הכשרה': 'teaching', 
+                'פיתוח תוכן': 'preparation',
+                'נסיעות': 'travel',
+                'פגישת הכנה': 'preparation',
+                'ניהול קשר': 'preparation',
+                'מנהלות': 'preparation',
+                'ייעוץ פרטני': 'consulting',
+                'מדידה והערכה': 'preparation',
+                'ספקים חיצוניים': 'preparation'
+            };
+
+            const componentTypes = Object.keys(componentToRateMapping);
+
+            const rates = clientRates[selectedClient];
+
+            const addCurrentComponent = () => {
+                if (!currentComponent.hoursPerUnit || !currentComponent.numberOfUnits) {
+                    alert('אנא מלא את כל השדות');
+                    return;
+                }
+                
+                const newComponent = {
+                    ...currentComponent,
+                    id: Date.now(),
+                    rateType: componentToRateMapping[currentComponent.type]
+                };
+                setComponents([...components, newComponent]);
+                
+                setCurrentComponent({
+                    type: 'יום הכשרה',
+                    description: '',
+                    hoursPerUnit: 6,
+                    numberOfUnits: 1
+                });
+                
+                alert('רכיב נוסף בהצלחה! ✅');
+            };
+
+            const updateCurrentComponent = (field, value) => {
+                setCurrentComponent({...currentComponent, [field]: value});
+            };
+
+            const removeComponent = (id) => {
+                setComponents(components.filter(comp => comp.id !== id));
+            };
+
+            const calculateCurrentComponent = () => {
+                const totalHours = currentComponent.hoursPerUnit * currentComponent.numberOfUnits;
+                const rateType = componentToRateMapping[currentComponent.type];
+                const rate = rates[rateType] || 0;
+                return totalHours * rate;
+            };
+
+            const calculateComponent = (component) => {
+                const totalHours = component.hoursPerUnit * component.numberOfUnits;
+                const rate = rates[component.rateType] || 0;
+                return totalHours * rate;
+            };
+
+            const calculateTotal = () => {
+                const subtotal = components.reduce((total, comp) => total + calculateComponent(comp), 0);
+                return subtotal * (1 - discount / 100);
+            };
+
+            const getTotalHours = () => {
+                return components.reduce((total, comp) => total + (comp.hoursPerUnit * comp.numberOfUnits), 0);
+            };
+
+            const getRateNameByType = (rateType) => {
+                const rateNames = {
+                    'teaching': 'הדרכה',
+                    'travel': 'נסיעה', 
+                    'preparation': 'הכנה',
+                    'consulting': 'ייעוץ'
+                };
+                return rateNames[rateType] || rateType;
+            };
+
+            const exportToExcel = () => {
+                if (!trainingName.trim()) {
+                    alert('אנא הכנס שם הכשרה לפני הייצוא');
+                    return;
+                }
+                
+                const today = new Date();
+                const hebrewDate = today.toLocaleDateString('he-IL');
+                const subtotal = components.reduce((total, comp) => total + calculateComponent(comp), 0);
+                const finalTotal = calculateTotal();
+                
+                const quoteData = [
+                    ['הצעת מחיר להכשרה', '', '', '', '', '', '', ''],
+                    ['', '', '', '', '', '', '', ''],
+                    ['פרטי ההצעה', '', '', '', '', '', '', ''],
+                    ['סוג לקוח:', selectedClient, '', '', '', '', '', ''],
+                    ['שם הלקוח:', clientName || 'לא צוין', '', '', '', '', '', ''],
+                    ['שם ההכשרה:', trainingName, '', '', '', '', '', ''],
+                    ['תאריך הצעה:', hebrewDate, '', '', '', '', '', ''],
+                    ['', '', '', '', '', '', '', ''],
+                    ['תעריפים', '', '', '', '', '', '', ''],
+                    ['שעת הדרכה:', `₪${rates.teaching}`, '', '', '', '', '', ''],
+                    ['שעת נסיעה:', `₪${rates.travel}`, '', '', '', '', '', ''],
+                    ['שעת הכנה:', `₪${rates.preparation}`, '', '', '', '', '', ''],
+                    ['ייעוץ פרטני:', `₪${rates.consulting}`, '', '', '', '', '', ''],
+                    ['', '', '', '', '', '', '', ''],
+                    ['פירוט רכיבים', '', '', '', '', '', '', ''],
+                    ['רכיב', 'פירוט', 'שעות ליחידה', 'מספר יחידות', 'סה"כ שעות', 'סוג תעריף', 'תעריף', 'סה"כ מחיר']
+                ];
+                
+                components.forEach(comp => {
+                    quoteData.push([
+                        comp.type,
+                        comp.description || '',
+                        comp.hoursPerUnit,
+                        comp.numberOfUnits,
+                        comp.hoursPerUnit * comp.numberOfUnits,
+                        getRateNameByType(comp.rateType),
+                        rates[comp.rateType],
+                        calculateComponent(comp)
+                    ]);
+                });
+                
+                quoteData.push(
+                    ['', '', '', '', '', '', '', ''],
+                    ['סיכום פיננסי', '', '', '', '', '', '', ''],
+                    ['סה"כ שעות:', getTotalHours(), '', '', '', '', '', ''],
+                    ['סה"כ לפני הנחה:', '', '', '', '', '', '', subtotal],
+                    ['הנחה (%):', discount, '', '', '', '', '', discount > 0 ? -(subtotal * discount / 100) : 0],
+                    ['סה"כ מחיר סופי:', '', '', '', '', '', '', finalTotal]
+                );
+                
+                const csvContent = quoteData.map(row => 
+                    row.map(cell => `"${cell}"`).join(',')
+                ).join('\n');
+                
+                const BOM = '\uFEFF';
+                const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `הצעת_מחיר_${selectedClient}_${trainingName.replace(/[^א-תa-zA-Z0-9]/g, '_')}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                alert('📊 קובץ אקסל יוצא בהצלחה!');
+            };
+
+            return (
+                <div className="app-container">
+                    <div className="header">
+                        <h1 style={{fontSize: '2.5rem', margin: 0, fontWeight: 'bold'}}>
+                            🎯 מחשבון תמחור הכשרות
+                        </h1>
+                        <p style={{margin: '10px 0 0 0', opacity: 0.9}}>
+                            כלי מתקדם לחישוב הצעות מחיר מדויקות ומהירות
+                        </p>
+                    </div>
+
+                    <div className="content">
+                        {/* פרטי ההצעה */}
+                        <div className="form-section">
+                            <h3 style={{marginBottom: '20px', color: '#374151', fontSize: '1.2rem'}}>פרטי ההצעה</h3>
+                            <div className="grid-3">
+                                <div>
+                                    <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>סוג לקוח</label>
+                                    <select 
+                                        value={selectedClient}
+                                        onChange={(e) => setSelectedClient(e.target.value)}
+                                        className="input-field"
+                                    >
+                                        {Object.keys(clientRates).map(type => (
+                                            <option key={type} value={type}>{type}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>שם הלקוח</label>
+                                    <input
+                                        type="text"
+                                        value={clientName}
+                                        onChange={(e) => setClientName(e.target.value)}
+                                        className="input-field"
+                                        placeholder="הכנס שם לקוח"
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>שם ההכשרה *</label>
+                                    <input
+                                        type="text"
+                                        value={trainingName}
+                                        onChange={(e) => setTrainingName(e.target.value)}
+                                        className="input-field"
+                                        placeholder="הכנס שם הכשרה"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* תעריפים */}
+                        <div className="form-section">
+                            <h3 style={{marginBottom: '8px', color: '#374151', fontSize: '1.2rem'}}>
+                                תעריפים עבור {selectedClient}
+                            </h3>
+                            <div className="grid-4">
+                                <div style={{textAlign: 'center', padding: '15px', background: '#E8F5E8', borderRadius: '8px'}}>
+                                    <div style={{fontWeight: 'bold', color: '#065F46'}}>שעת הדרכה</div>
+                                    <div style={{fontSize: '1.5rem', color: '#10B981'}}>₪{rates.teaching}</div>
+                                </div>
+                                <div style={{textAlign: 'center', padding: '15px', background: '#EBF8FF', borderRadius: '8px'}}>
+                                    <div style={{fontWeight: 'bold', color: '#1E3A8A'}}>שעת נסיעה</div>
+                                    <div style={{fontSize: '1.5rem', color: '#3B82F6'}}>₪{rates.travel}</div>
+                                </div>
+                                <div style={{textAlign: 'center', padding: '15px', background: '#FFF7ED', borderRadius: '8px'}}>
+                                    <div style={{fontWeight: 'bold', color: '#9A3412'}}>שעת הכנה</div>
+                                    <div style={{fontSize: '1.5rem', color: '#EA580C'}}>₪{rates.preparation}</div>
+                                </div>
+                                <div style={{textAlign: 'center', padding: '15px', background: '#F3E8FF', borderRadius: '8px'}}>
+                                    <div style={{fontWeight: 'bold', color: '#581C87'}}>ייעוץ פרטני</div>
+                                    <div style={{fontSize: '1.5rem', color: '#8B5CF6'}}>₪{rates.consulting}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* הוספת רכיבים */}
+                        {!showFinalQuote && (
+                            <div className="form-section">
+                                <h3 style={{marginBottom: '20px', color: '#374151', fontSize: '1.2rem'}}>
+                                    🔧 הוספת רכיב חדש
+                                </h3>
+                                
+                                <div className="component-card" style={{background: 'linear-gradient(45deg, #F3F4F6, #E5E7EB)', border: '3px dashed #9CA3AF'}}>
+                                    <div className="grid-2" style={{marginBottom: '20px'}}>
+                                        <div>
+                                            <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>סוג רכיב</label>
+                                            <select
+                                                value={currentComponent.type}
+                                                onChange={(e) => updateCurrentComponent('type', e.target.value)}
+                                                className="input-field"
+                                                style={{fontSize: '1.1rem', fontWeight: '600'}}
+                                            >
+                                                {componentTypes.map(type => (
+                                                    <option key={type} value={type}>{type}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>תעריף אוטומטי</label>
+                                            <div 
+                                                className="input-field"
+                                                style={{
+                                                    background: '#E8F5E8',
+                                                    border: '2px solid #10B981',
+                                                    fontSize: '1.1rem',
+                                                    fontWeight: 'bold',
+                                                    color: '#065F46',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    cursor: 'default'
+                                                }}
+                                            >
+                                                {getRateNameByType(componentToRateMapping[currentComponent.type])} - ₪{rates[componentToRateMapping[currentComponent.type]]}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={{marginBottom: '20px'}}>
+                                        <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>פירוט הרכיב</label>
+                                        <input
+                                            type="text"
+                                            value={currentComponent.description}
+                                            onChange={(e) => updateCurrentComponent('description', e.target.value)}
+                                            className="input-field"
+                                            placeholder="תיאור מפורט של הרכיב..."
+                                            style={{fontSize: '1.1rem'}}
+                                        />
+                                    </div>
+                                    
+                                    <div className="grid-2" style={{marginBottom: '20px'}}>
+                                        <div>
+                                            <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>שעות ליחידה</label>
+                                            <input
+                                                type="number"
+                                                value={currentComponent.hoursPerUnit}
+                                                onChange={(e) => updateCurrentComponent('hoursPerUnit', Number(e.target.value))}
+                                                className="input-field"
+                                                min="0"
+                                                step="0.5"
+                                                style={{fontSize: '1.3rem', fontWeight: 'bold', textAlign: 'center'}}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{display: 'block', marginBottom: '8px', fontWeight: '600'}}>מספר יחידות</label>
+                                            <input
+                                                type="number"
+                                                value={currentComponent.numberOfUnits}
+                                                onChange={(e) => updateCurrentComponent('numberOfUnits', Number(e.target.value))}
+                                                className="input-field"
+                                                min="1"
+                                                style={{fontSize: '1.3rem', fontWeight: 'bold', textAlign: 'center'}}
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={{
+                                        background: 'white', 
+                                        padding: '20px', 
+                                        borderRadius: '10px', 
+                                        textAlign: 'center',
+                                        marginBottom: '20px',
+                                        border: '2px solid #10B981'
+                                    }}>
+                                        <div style={{color: '#6B7280', marginBottom: '5px'}}>עלות רכיב זה:</div>
+                                        <div style={{fontSize: '2rem', fontWeight: 'bold', color: '#10B981'}}>
+                                            ₪{calculateCurrentComponent().toLocaleString()}
+                                        </div>
+                                        <div style={{color: '#6B7280', fontSize: '0.9rem'}}>
+                                            ({currentComponent.hoursPerUnit} × {currentComponent.numberOfUnits} × ₪{rates[componentToRateMapping[currentComponent.type]]})
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={{textAlign: 'center'}}>
+                                        <button 
+                                            onClick={addCurrentComponent} 
+                                            className="btn btn-success"
+                                            style={{fontSize: '1.1rem', padding: '15px 30px'}}
+                                        >
+                                            ✅ שמור רכיב והמשך הלאה
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* רכיבים שנוספו */}
+                        {components.length > 0 && (
+                            <div className="form-section">
+                                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+                                    <h3 style={{color: '#374151', fontSize: '1.2rem', margin: 0}}>
+                                        📋 רכיבים שנוספו ({components.length})
+                                    </h3>
+                                    {!showFinalQuote && (
+                                        <button 
+                                            onClick={() => setShowFinalQuote(true)} 
+                                            className="btn btn-primary"
+                                            style={{fontSize: '1.1rem', padding: '12px 25px'}}
+                                        >
+                                            🎯 הכן הצעת מחיר סופית
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div style={{display: 'grid', gap: '10px'}}>
+                                    {components.map((component, index) => (
+                                        <div key={component.id} style={{
+                                            background: 'white',
+                                            border: '1px solid #E5E7EB',
+                                            borderRadius: '8px',
+                                            padding: '15px',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <div style={{flex: 1}}>
+                                                <div style={{fontWeight: 'bold', color: '#374151'}}>
+                                                    {index + 1}. {component.type}
+                                                </div>
+                                                <div style={{color: '#6B7280', fontSize: '0.9rem'}}>
+                                                    {component.description && `${component.description} • `}
+                                                    {component.hoursPerUnit} שעות × {component.numberOfUnits} יחידות • 
+                                                    {getRateNameByType(component.rateType)}
+                                                </div>
+                                            </div>
+                                            <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                                                <div style={{fontSize: '1.1rem', fontWeight: 'bold', color: '#10B981'}}>
+                                                    ₪{calculateComponent(component).toLocaleString()}
+                                                </div>
+                                                <button
+                                                    onClick={() => removeComponent(component.id)}
+                                                    className="btn btn-danger"
+                                                    style={{fontSize: '0.8rem', padding: '5px 8px'}}
+                                                    title="מחק רכיב"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* סיכום והצעת מחיר סופית */}
+                        {showFinalQuote && components.length > 0 && (
+                            <>
+                                <div className="summary-card">
+                                    <h2 style={{marginBottom: '20px', fontSize: '1.5rem'}}>💼 הצעת מחיר סופית</h2>
+                                    <div className="grid-3">
+                                        <div>
+                                            <div style={{fontSize: '0.9rem', opacity: 0.9}}>סה"כ שעות</div>
+                                            <div style={{fontSize: '2rem', fontWeight: 'bold'}}>{getTotalHours()}</div>
+                                        </div>
+                                        <div>
+                                            <div style={{fontSize: '0.9rem', opacity: 0.9}}>הנחה (%)</div>
+                                            <input
+                                                type="number"
+                                                value={discount}
+                                                onChange={(e) => setDiscount(Number(e.target.value))}
+                                                style={{
+                                                    background: 'transparent',
+                                                    border: 'none',
+                                                    borderBottom: '2px solid white',
+                                                    color: 'white',
+                                                    fontSize: '1.5rem',
+                                                    fontWeight: 'bold',
+                                                    textAlign: 'center',
+                                                    width: '80px'
+                                                }}
+                                                min="0"
+                                                max="100"
+                                            />
+                                        </div>
+                                        <div>
+                                            <div style={{fontSize: '0.9rem', opacity: 0.9}}>מחיר סופי</div>
+                                            <div style={{fontSize: '2.5rem', fontWeight: 'bold'}}>₪{calculateTotal().toLocaleString()}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{display: 'flex', gap: '15px', marginBottom: '30px', justifyContent: 'center'}}>
+                                    <button onClick={exportToExcel} className="btn btn-primary">
+                                        📊 ייצא לאקסל
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowFinalQuote(false)} 
+                                        className="btn"
+                                        style={{background: '#6B7280', color: 'white'}}
+                                    >
+                                        ← חזור לעריכה
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {/* הודעה כשאין רכיבים */}
+                        {!showFinalQuote && components.length === 0 && (
+                            <div style={{
+                                textAlign: 'center', 
+                                padding: '60px 20px', 
+                                color: '#6B7280',
+                                background: '#F9FAFB',
+                                borderRadius: '15px',
+                                border: '2px dashed #D1D5DB'
+                            }}>
+                                <div style={{fontSize: '3rem', marginBottom: '20px'}}>🎯</div>
+                                <h3 style={{marginBottom: '10px', color: '#374151'}}>התחל ליצור הצעת מחיר</h3>
+                                <p>מלא את הפרטים למעלה והוסף רכיבים כדי לקבל הצעת מחיר מדויקת</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<TrainingPricingApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
